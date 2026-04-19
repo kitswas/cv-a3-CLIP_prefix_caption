@@ -1,38 +1,34 @@
 # Prediction interface for Cog ⚙️
 # Reference: https://github.com/replicate/cog/blob/main/docs/python.md
 
+from typing import Optional, Union
+
 import clip
-import os
-from torch import nn
+import cog
 import numpy as np
+import PIL.Image
+import skimage.io as io
 import torch
 import torch.nn.functional as nnf
-import sys
-from typing import Tuple, List, Union, Optional
+from torch import nn
 from transformers import (
-    GPT2Tokenizer,
     GPT2LMHeadModel,
-    AdamW,
-    get_linear_schedule_with_warmup,
+    GPT2Tokenizer,
 )
-import skimage.io as io
-import PIL.Image
-
-import cog
 
 # import torch
 
 N = type(None)
 V = np.array
 ARRAY = np.ndarray
-ARRAYS = Union[Tuple[ARRAY, ...], List[ARRAY]]
-VS = Union[Tuple[V, ...], List[V]]
+ARRAYS = Union[tuple[ARRAY, ...], list[ARRAY]]
+VS = Union[tuple[V, ...], list[V]]
 VN = Union[V, N]
 VNS = Union[VS, N]
 T = torch.Tensor
-TS = Union[Tuple[T, ...], List[T]]
+TS = Union[tuple[T, ...], list[T]]
 TN = Optional[T]
-TNS = Union[Tuple[TN, ...], List[TN]]
+TNS = Union[tuple[TN, ...], list[TN]]
 TSN = Optional[TS]
 TA = Union[T, ARRAY]
 
@@ -98,8 +94,8 @@ class MLP(nn.Module):
     def forward(self, x: T) -> T:
         return self.model(x)
 
-    def __init__(self, sizes: Tuple[int, ...], bias=True, act=nn.Tanh):
-        super(MLP, self).__init__()
+    def __init__(self, sizes: tuple[int, ...], bias=True, act=nn.Tanh):
+        super().__init__()
         layers = []
         for i in range(len(sizes) - 1):
             layers.append(nn.Linear(sizes[i], sizes[i + 1], bias=bias))
@@ -109,7 +105,6 @@ class MLP(nn.Module):
 
 
 class ClipCaptionModel(nn.Module):
-
     # @functools.lru_cache #FIXME
     def get_dummy_token(self, batch_size: int, device: D) -> T:
         return torch.zeros(
@@ -117,7 +112,7 @@ class ClipCaptionModel(nn.Module):
         )
 
     def forward(
-        self, tokens: T, prefix: T, mask: Optional[T] = None, labels: Optional[T] = None
+        self, tokens: T, prefix: T, mask: T | None = None, labels: T | None = None
     ):
         embedding_text = self.gpt.transformer.wte(tokens)
         prefix_projections = self.clip_project(prefix).view(
@@ -133,7 +128,7 @@ class ClipCaptionModel(nn.Module):
         return out
 
     def __init__(self, prefix_length: int, prefix_size: int = 512):
-        super(ClipCaptionModel, self).__init__()
+        super().__init__()
         self.prefix_length = prefix_length
         self.gpt = GPT2LMHeadModel.from_pretrained("gpt2")
         self.gpt_embedding_size = self.gpt.transformer.wte.weight.shape[1]
@@ -156,7 +151,7 @@ class ClipCaptionPrefix(ClipCaptionModel):
         return self.clip_project.parameters()
 
     def train(self, mode: bool = True):
-        super(ClipCaptionPrefix, self).train(mode)
+        super().train(mode)
         self.gpt.eval()
         return self
 
@@ -257,7 +252,6 @@ def generate2(
     device = next(model.parameters()).device
 
     with torch.no_grad():
-
         for entry_idx in range(entry_count):
             if embed is not None:
                 generated = embed
@@ -269,7 +263,6 @@ def generate2(
                 generated = model.gpt.transformer.wte(tokens)
 
             for i in range(entry_length):
-
                 outputs = model.gpt(inputs_embeds=generated)
                 logits = outputs.logits
                 logits = logits[:, -1, :] / (temperature if temperature > 0 else 1.0)
